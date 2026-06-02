@@ -1,184 +1,221 @@
 package com.example.musculation.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.musculation.data.SeanceComplete
+
+
+data class Performance(
+    val nomExo: String,
+    val date: String,
+    val poids: String,
+    val reps: String,
+    val intensite: Double
+)
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    viewModel: HistoryViewModel = viewModel()
+) {
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.chargerDonnees(context)
+    }
+
+    val listeSeances by viewModel.historiqueSeances.collectAsState()
     val scrollState = rememberScrollState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .safeDrawingPadding()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    var seanceSelectionnee by remember { mutableStateOf<SeanceComplete?>(null) }
+
+    BackHandler(enabled = seanceSelectionnee != null) {
+        seanceSelectionnee = null
+    }
+
+    val dernieresSeances = listeSeances.take(2)
+
+    val topSeries = remember(listeSeances) {
+        listeSeances.flatMap { seanceComplete ->
+            seanceComplete.exercices.flatMap { exerciceAvecSeries ->
+                exerciceAvecSeries.series.map { serie ->
+                    val safePoids = serie.poids.replace(",", ".").toDoubleOrNull() ?: 0.0
+                    val safeReps = serie.reps.toDoubleOrNull() ?: 0.0
+
+                    val scoreIntensite = safePoids * safeReps
+
+                    Performance(
+                        nomExo = exerciceAvecSeries.exercice.nom,
+                        date = seanceComplete.seance.date,
+                        poids = serie.poids,
+                        reps = serie.reps,
+                        intensite = scoreIntensite
+                    )
+                }
+            }
+        }
+            .sortedByDescending { it.intensite }
+            .take(2) // les 2 meilleurs
+    }
+
+    if (seanceSelectionnee == null) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .safeDrawingPadding()
+                .verticalScroll(scrollState)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
             Column {
                 Text(
-                    text = "HELLO, X",
+                    text = "TABLEAU DE BORD",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary ,
+                    color = MaterialTheme.colorScheme.primary,
                     letterSpacing = 1.5.sp
                 )
                 Text(
-                    text = "Suivi d'entraînement",
-                    fontSize = 26.sp,
+                    text = "Musculation",
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }
-            Box(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(50))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(Icons.Default.LocalFireDepartment, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                    Text("5", fontSize = 14.dp.value.sp, fontWeight = FontWeight.Bold)
+
+            if (listeSeances.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Aucune activité pour le moment.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                 }
-            }
-        }
-
-        SectionHeader(title = "Dernières activités", icon = Icons.Default.History)
-
-        ItemHistoryPro(
-            title = "Push Day • Pecs / Épaules / Triceps",
-            date = "HIER",
-            duration = "55 min",
-            volume = "4 250 kg",
-            intensityColor = MaterialTheme.colorScheme.secondary
-        )
-        Spacer(modifier = Modifier.height(14.dp))
-        ItemHistoryPro(
-            title = "Legs Day • Squat Focus",
-            date = "17 MAI",
-            duration = "1h05",
-            volume = "7 100 kg",
-            intensityColor = MaterialTheme.colorScheme.secondary
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        SectionHeader(title = "Records personnels (1RM)", icon = Icons.AutoMirrored.Filled.TrendingUp)
-
-        ItemPerfPro(exercise = "Développé Couché", stats = "105 kg", subText = "+5kg cette semaine", icon = Icons.Default.FlashOn)
-        Spacer(modifier = Modifier.height(12.dp))
-        ItemPerfPro(exercise = "Squat Arrière", stats = "130 kg", subText = "Stable (6 reps)", icon = Icons.Default.FlashOn)
-    }
-}
-
-@Composable
-fun SectionHeader(title: String, icon: ImageVector) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-        Text(
-            text = title.uppercase(),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            letterSpacing = 1.sp
-        )
-    }
-}
-
-@Composable
-fun ItemHistoryPro(title: String, date: String, duration: String, volume: String, intensityColor: Color) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(text = date, fontSize = 11.sp, fontWeight = FontWeight.Black, color = intensityColor, letterSpacing = 1.sp)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column {
-                    Text("TEMPS", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                    Text(duration, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                }
-                Column {
-                    Text("VOLUME", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                    Text(volume, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ItemPerfPro(exercise: String, stats: String, subText: String, icon: ImageVector) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
-                        .padding(8.dp)
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Card(
+                        modifier = Modifier.weight(1f).height(100.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+                            Row {
+                                Icon(Icons.Default.LocalFireDepartment, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(modifier = Modifier.fillMaxWidth(), text = "${listeSeances.size}", fontSize = 20.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                            }
+                            Text(text = "Séances totales", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Card(
+                        modifier = Modifier.weight(1f).height(100.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+                            Row {
+                                Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                                Text(modifier = Modifier.fillMaxWidth(), text = dernieresSeances.firstOrNull()?.seance?.duree ?: "--", fontSize = 20.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                            }
+                            Text(text = "Dernière durée", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
 
-                Column {
-                    Text(text = exercise, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text(text = subText, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
+                if (topSeries.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Performances maximales", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                        }
+
+                        topSeries.forEach { perf ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = perf.nomExo, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        Text(text = perf.date, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Box(
+                                        modifier = Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = "${perf.poids} kg x ${perf.reps}",
+                                            fontWeight = FontWeight.Black,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Derniers entraînements",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    dernieresSeances.forEach { seance ->
+                        ItemSeanceHistoriquePro(
+                            seanceComplete = seance,
+                            codeClick = {
+                                seanceSelectionnee = seance
+                            }
+                        )
+                    }
                 }
             }
-
-            Text(
-                text = stats,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onBackground
-            )
         }
+    } else {
+        SeanceDetailView(
+            seanceComplete = seanceSelectionnee!!,
+            onBackClick = { seanceSelectionnee = null },
+            onDeleteClick = {
+                viewModel.supprimerSeanceComplete(context, seanceSelectionnee!!)
+                seanceSelectionnee = null
+            },
+            onSaveClick = { seanceTotalementModifiee ->
+                // Sauvegarde dans SQLite via le ViewModel
+                viewModel.sauvegarderSeanceCompleteModifiee(context, seanceTotalementModifiee)
+
+                // Maj l'aperçu instantanément à l'écran
+                seanceSelectionnee = seanceTotalementModifiee
+            }
+        )
     }
 }

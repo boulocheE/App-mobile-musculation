@@ -28,6 +28,7 @@ import com.example.musculation.ui.HistoryScreen
 import com.example.musculation.ui.HomeScreen
 import com.example.musculation.ui.WorkoutScreen
 
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
